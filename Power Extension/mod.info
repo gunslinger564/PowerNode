@@ -1,0 +1,7 @@
+name=Power Extension
+id=PWREXT
+description=adds extension cords and power nodes for the generator
+poster=poster.png
+pack=PowerNodeTiles
+require=TheWorkshop(new version)
+tiledef=PowerNodes 999
