@@ -8,11 +8,7 @@ multigens.active = mods:contains("MultipleGenerators")
 isa.active = mods:contains("ISA_41")
 local isShowing
 if genRange.active then
-    require"ISGeneratorInfoWindow_patch"
-    --make copy of genRange mod table
-    for i,v in pairs(GeneratorRange)do
-        genRange[i] = v
-    end
+
 end
 if multigens.active then
     require"MGUI/MGGeneratorInfoWindow"
@@ -34,19 +30,19 @@ local function showRange(node,isactive,player)
             if isShowing ~= nil then
                 if IsoUtils.DistanceTo(nx,ny,x,y) > 20 then
                     isShowing = nil
-                    genRange.ClearRender(true)
+                    NodeRange.ClearRender(true)
                 end
             elseif isShowing == nil then
                 Events.EveryOneMinute.Remove(autoRemove)
             end
     end
     if isShowing == nil then
-        genRange.Render(node, isactive)
+        NodeRange.Render(node, isactive)
         isShowing = true
         Events.EveryOneMinute.Add(autoRemove)
 
     else
-        genRange.ClearRender(true)
+        NodeRange.ClearRender(true)
         isShowing = nil
     end
 end
@@ -89,18 +85,24 @@ local function OnFillWorldObjectContextMenu(playerNum, context, worldObjects, te
             vn = PWR.getNode(x,y,z)
             --sendClientCommand(getSpecificPlayer(playerNum), 'PWRNODE', 'UPDATE',{})
         end
-    
+        local action --= ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+
         if gen then
             local genInfoOption
             local rangeOption
             local toggleOption
             local genInfoMenu
             if #gen > 1 then
-                genInfoOption = context:addOption("Node's Generators")
+                genInfoOption = context:addOption(getText("ContextMenu_NodesGenerators"))
                 genInfoMenu = context:getNew(context)
                 context:addSubMenu(genInfoOption,genInfoMenu)
             end
             for i,tbl in pairs(gen)do
+                local color = tbl.color
+                if color then
+                    color = color:gsub("^%l", string.upper)
+                    color = getText("ContextMenu_"..color)
+                end
                 local g = PWR.findGenerator(tbl.x,tbl.y,tbl.z)
                 if multigens.active then
                     local vg = VirtualGenerator.Get (tbl.x,tbl.y,tbl.z)
@@ -110,45 +112,69 @@ local function OnFillWorldObjectContextMenu(playerNum, context, worldObjects, te
                         sendClientCommand(getSpecificPlayer(playerNum), 'mg_commands', 'update_generators', {sync=false})
                     end
                 end
+
                 local powerBank
                 if isa.active and tbl.bank and not g then
                     local PbSystem = require "Powerbank/ISAPowerbankSystem_server"
                     powerBank = PbSystem.instance:getLuaObjectAt(tbl.bank.x,tbl.bank.y,tbl.bank.z)
                 end
                 if ((g ~= nil and g:isActivated() == true)or powerBank and powerBank.on) and not toggleOption then
-                    local choice =  "Turn on Node"
+                    local choice =  getText("ContextMenu_TurnOnNode")
                     if node:getModData().status == "ON" then
-                        choice = "Turn off Node"
+                        choice = getText("ContextMenu_TurnOffNode")
                     end
-                    toggleOption = context:addOption(choice,node,PWR.toggle,node:getModData().status)
+                    action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                    action:setOnComplete(PWR.toggle,node,node:getModData().status,"","")
+                    toggleOption = context:addOption(choice,action,ISTimedActionQueue.add)
+                    --toggleOption = context:addOption(choice,node,PWR.toggle,node:getModData().status)
                 end
                 if genRange.active and not rangeOption then
-                    rangeOption = context:addOption("Toggle node Range",node,showRange,node:getModData().status == "ON",getSpecificPlayer(playerNum))
+                    rangeOption = context:addOption(getText("ContextMenu_ToggleNodeRange"),node,showRange,node:getModData().status == "ON",getSpecificPlayer(playerNum))
                 end
                 if isa.active then
                     isa = require "ISAUtilities"
                 end
                 if powerBank and genInfoMenu then
-                    local solar = require "ISAUtilities"
-                    genInfoMenu:addOption(getText(tbl.color.." Power Bank"), playerNum, isa.StatusWindow.OnOpenPanel, getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z))
+                    action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                    action:setOnComplete(isa.StatusWindow.OnOpenPanel,playerNum,getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z),"","")
+                    genInfoMenu:addOption(color.." "..getText("ContextMenu_PowerBank"),action,ISTimedActionQueue.add)
+                   -- genInfoMenu:addOption(color.." "..getText("ContextMenu_PowerBank"), playerNum, isa.StatusWindow.OnOpenPanel, getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z))
                 elseif powerBank then
-                    context:addOption("Node's Power Bank info", playerNum, isa.StatusWindow.OnOpenPanel, getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z))
+                    action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                    action:setOnComplete(isa.StatusWindow.OnOpenPanel,playerNum,getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z),"","")
+                    context:addOption(getText("ContextMenu_PowerBankInfo"),action,ISTimedActionQueue.add)
+                   -- context:addOption(getText("ContextMenu_PowerBankInfo"), playerNum, isa.StatusWindow.OnOpenPanel, getSquare(tbl.bank.x,tbl.bank.y,tbl.bank.z))
                 end
+
+
                 if g and genInfoMenu then
-                    if not genInfoMenu:getOptionFromName(tbl.color.." Generator") then
+                    if not genInfoMenu:getOptionFromName(color.." "..getText("ContextMenu_Generator")) then
                         if multigens.active then
-                                genInfoMenu:addOption(tbl.color.." Generator", getSpecificPlayer(playerNum), MGOnInfoGenerator2,g)
+                            action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                                action:setOnComplete(MGOnInfoGenerator2,getSpecificPlayer(playerNum),g,"","")
+                               -- genInfoMenu:addOption(color.." "..getText("ContextMenu_Generator"), getSpecificPlayer(playerNum), MGOnInfoGenerator2,g)
                         else
-                                genInfoMenu:addOption(tbl.color.." Generator",ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g), ISGeneratorInfoAction.perform);
+                            action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                                action:setOnComplete(ISGeneratorInfoAction.perform,ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g),"","","")
+                               -- genInfoMenu:addOption(color.." "..getText("ContextMenu_Generator"),ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g), ISGeneratorInfoAction.perform);
                         end
+                                genInfoMenu:addOption(color.." "..getText("ContextMenu_Generator"),action,ISTimedActionQueue.add)
                     end
                 elseif g and not genInfoMenu and not genInfoOption then
-                    if not context:getOptionFromName("Node's Generator info") then
+                    if not context:getOptionFromName(getText("ContextMenu_NodeGenInfo")) and not context:getOptionFromName(color.." "..getText("ContextMenu_NodeGenInfo")) then
+                        local choice
                         if multigens.active then
-                                genInfoOption = context:addOption("Node's Generator info", getSpecificPlayer(playerNum), MGOnInfoGenerator2,g)
+                            action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                            action:setOnComplete(MGOnInfoGenerator2,getSpecificPlayer(playerNum),g,"","")
+                            choice = getText("ContextMenu_NodeGenInfo")
+                                --genInfoOption = context:addOption(getText("ContextMenu_NodeGenInfo"), getSpecificPlayer(playerNum), MGOnInfoGenerator2,g)
                         else
-                            genInfoOption = context:addOption("Node's Generator info",ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g), ISGeneratorInfoAction.perform);
+                            action = ISWalkToTimedAction:new(getSpecificPlayer(playerNum), node:getSquare())
+                            action:setOnComplete(ISGeneratorInfoAction.perform,ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g),"","","")
+                            choice = color.." "..getText("ContextMenu_NodeGenInfo")
+                            --genInfoOption = context:addOption(getText("ContextMenu_NodeGenInfo"),ISGeneratorInfoAction:new(getSpecificPlayer(playerNum), g), ISGeneratorInfoAction.perform);
                         end
+                        genInfoOption = context:addOption(choice,action,ISTimedActionQueue.add)
                     end
                 end
             end

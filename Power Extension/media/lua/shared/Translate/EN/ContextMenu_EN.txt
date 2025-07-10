@@ -1,0 +1,13 @@
+ContextMenu_EN = {
+	ContextMenu_NodesGenerators = "Node's Generators",
+	ContextMenu_TurnOnNode = "Turn on Node",
+	ContextMenu_TurnOffNode = "Turn off Node",
+	ContextMenu_ToggleNodeRange = "Toggle node Range",
+	ContextMenu_PowerBank = "Power Bank",
+	ContextMenu_PowerBankInfo = "Node's Power Bank info",
+	ContextMenu_Generator = "Generator",
+	ContextMenu_NodeGenInfo = "Node's Generator info",
+	ContextMenu_Node =  "Node",
+	ContextMenu_Switch = "Switch",
+	ContextMenu_NodeBuilding =  "Node Building",
+} 

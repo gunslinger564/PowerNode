@@ -1,0 +1,9 @@
+Tooltip_EN = {
+	-- Item tooltip
+	Tooltip_food_Slice = "Slice",
+	Tooltip_food_Uncooked = "Uncooked",
+	Tooltip_PowerNode = "Power Node",
+    Tooltip_PowerNode_description = "Extends Generator Power",
+    Tooltip_GeneratorSwitch = "Generator Switch"
+    Tooltip_GeneratorSwitch_description = "Connects to a generator",
+}

@@ -3,7 +3,10 @@ PWR = PWR or {}
 
 -- thanks to multiple generators mod, much more organised than me
 
-
+--removes node from moddata
+---@param x integer
+---@param y integer
+---@param z integer
 function PWR.removeNode(x,y,z)
     local moddata = GetNodeData()
     if x and y and z then
@@ -20,12 +23,16 @@ function PWR.removeNode(x,y,z)
 end
 
 
+--finds node in moddata
+---@param x integer
+---@param y integer
+---@param z integer
 function PWR.getNode(x, y, z)
     local globalModData = GetNodeData()
     for k, v in pairs(globalModData.ActiveNodes) do
         if v then
             if v.x == x and v.y == y and v.z == z then
-                print("PWR.getNode node found returning...")
+              --  print("PWR.getNode node found returning...")
                 return v
             end
         end
@@ -40,7 +47,11 @@ local function dataContains(x,y,z,data)
     end
 
 end
-
+--makes changes to node
+---@param x integer
+---@param y integer
+---@param z integer
+---@param args table
 function PWR.modifyNode(x,y,z,args)
     local n = PWR.getNode(x, y, z)
     if n then
@@ -55,8 +66,11 @@ function PWR.modifyNode(x,y,z,args)
     end
 end
 
-
-
+--adds node to moddata
+---@param x integer
+---@param y integer
+---@param z integer
+---@param args table
 function PWR.addNode(x,y,z,args)
     if x and y and z then
         local moddata = GetNodeData()

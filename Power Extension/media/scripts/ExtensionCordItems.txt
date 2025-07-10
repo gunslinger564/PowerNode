@@ -1,0 +1,103 @@
+module PowerNodes {
+    item OrangeExtensionCord
+    {
+        Weight	=	0.2,	
+        Type = Drainable,
+        DisplayCategory = Electronics,
+        DisplayName = Extension Cord,
+        UseWhileEquipped	=	FALSE,
+        UseDelta	        =	 0.05,
+        Icon			= orange_cable,
+        WorldStaticModel = PowerNodes.OrangeWire,
+    }
+        item YellowExtensionCord
+    {
+        Weight	=	0.2,	
+        Type = Drainable,
+        DisplayCategory = Electronics,
+        DisplayName = Extension Cord,
+        UseWhileEquipped	=	FALSE,
+        UseDelta	        =	 0.05,
+        Icon			= yellow_cable,
+        WorldStaticModel = PowerNodes.YellowWire,
+    }
+        item GreenExtensionCord
+    {
+        Weight	=	0.2,	
+        Type = Drainable,
+        DisplayCategory = Electronics,
+        DisplayName = Extension Cord,
+        UseWhileEquipped	=	FALSE,
+        UseDelta	        =	 0.05,
+        Icon			= green_cable,
+        WorldStaticModel = PowerNodes.GreenWire,
+    }
+            item RedExtensionCord
+    {
+        Weight	=	0.2,	
+        Type = Drainable,
+        DisplayCategory = Electronics,
+        DisplayName = Extension Cord,
+        UseWhileEquipped	=	FALSE,
+        UseDelta	        =	 0.05,
+        Icon			= red_cable,
+        WorldStaticModel = PowerNodes.RedWire,
+    }
+                item BlueExtensionCord
+    {
+        Weight	=	0.2,	
+        Type = Drainable,
+        DisplayCategory = Electronics,
+        DisplayName = Extension Cord,
+        UseWhileEquipped	=	FALSE,
+        UseDelta	        =	 0.05,
+        Icon			= blue_cable,
+        WorldStaticModel = PowerNodes.BlueWire,
+    }
+    item transferSwitch
+    {
+        Weight	=	20,
+        Type = Moveable,
+        Icon			= switch,
+        DisplayName = Transfer Switch,
+        WorldObjectSprite = PowerNodesTiles_0,
+    }
+        item powerNode
+    {
+        Weight	=	15,
+        Type = Moveable,
+        Icon			= node,
+        DisplayName = Power Node,
+        WorldObjectSprite = PowerNodesTiles_4,
+    }
+    	model OrangeWire
+	{
+		mesh = exCord,
+		texture = OrangeWire,
+		scale = 0.005,
+	}
+        model YellowWire
+	{
+		mesh = exCord,
+		texture = YellowWire,
+		scale = 0.005,
+	}
+        model GreenWire
+	{
+		mesh = exCord,
+		texture = GreenWire,
+		scale = 0.005,
+	}
+        model RedWire
+	{
+		mesh = exCord,
+		texture = RedWire,
+		scale = 0.005,
+	}
+        model BlueWire
+	{
+		mesh = exCord,
+		texture = BlueWire,
+		scale = 0.005,
+	}
+}

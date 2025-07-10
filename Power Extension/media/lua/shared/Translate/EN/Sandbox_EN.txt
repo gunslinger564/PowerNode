@@ -1,0 +1,10 @@
+
+Sandbox_EN = {
+Sandbox_PWRNODE = "Power Node",
+
+Sandbox_PWRNODE_electric = "Electric Skill",
+Sandbox_PWRNODE_electric_tooltip = "What Level a Player Needs to be at to build Node power items",
+
+Sandbox_PWRNODE_chunk = "Node Range",
+Sandbox_PWRNODE_chunk_tooltip = "How Many Chunks A Node Will Power",
+}

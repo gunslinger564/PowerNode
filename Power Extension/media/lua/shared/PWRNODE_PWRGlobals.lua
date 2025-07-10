@@ -7,6 +7,10 @@ function PWR.Debug(txt)
     end--]]
 end
 
+
+--returns the cable color as a string
+--- @param cable IsoObject
+--- @return string
 function PWR.getColor(cable)
     local tex
     if instanceof(cable,"IsoObject") then
@@ -32,6 +36,8 @@ function PWR.getColor(cable)
 end
 
 --returns tile number modifier from the color
+--- @param color string
+--- @return integer
 function PWR.getMod(color)
     local pick = {
     ["orange"] = 0,
@@ -50,71 +56,81 @@ local function genAdded(data,gen)
     end
 end
 
-
+--checks a split in cables to keep data on side that has a generator
 local function networkHasGenerator(startX, startY, startZ, generatorData, color)
+   -- if not generatorData then return false end
     local visited = {}
     local queue = {{x = startX, y = startY, z = startZ}}
-    
+   -- local gen = PWR.findGenerator(generatorData.x, generatorData.y, generatorData.z)
+   -- local scoords
+   -- if gen then
+  --     scoords = gen:getModData().switch
+   -- end
+   -- local switch
+   -- if scoords then
+   -- switch = PWR.findSwitch({scoords[1],scoords[2],scoords[3]})
+   -- end
+   -- if not switch then return end
+   --- if (gen and not gen:isConnected() == true ) or not gen then return false end
     while #queue > 0 do
         local current = table.remove(queue, 1)
         local key = current.x .. "," .. current.y .. "," .. current.z
         
         if not visited[key] then
             visited[key] = true
-            local gen = PWR.findGenerator(generatorData.x, generatorData.y, generatorData.z)
-            if gen then gen = gen:getModData().switch end
-            -- Check if we've reached the generator position
-            if gen and current.x == gen[1] and current.y == gen[2] and current.z == gen[3] then
-                -- Verify the generator still exists
-                local switch = PWR.findSwitch({gen[1], gen[2], gen[3]})
-                if switch ~= nil then
-                    return true
+            local switch = PWR.findSwitch({current.x,current.y,current.z})
+            if switch then
+                local gdata = switch:getModData().generator
+                local gen = PWR.findGenerator(gdata.x,gdata.y,gdata.z)
+                if gen and gen:isConnected() then
+                    return switch:getModData().generator
                 end
             end
+            -- Check if we've reached the switch position
+
             
             -- Check all six directions
             local directions = {
-                {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}
+                {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}
             }
             
             for _, dir in ipairs(directions) do
                 local nx, ny, nz = current.x + dir[1], current.y + dir[2], current.z + dir[3]
                 local neighborCable = PWR.findCable({nx, ny, nz})
                 
-                if neighborCable and neighborCable[color] then
+                if neighborCable ~= nil and neighborCable[color] ~= nil then
                     table.insert(queue, {x = nx, y = ny, z = nz})
                 end
             end
         end
     end
-    
-    return false
+    --return false
 end
 
--- Modified propagation function that only removes data if no generator access
+--move generator data through extension cords
 local function propagateGeneratorData(startX, startY, startZ, generatorData, color, disconnect)
     -- If disconnecting, first check if this network still has generator access
-    if disconnect then
-        local stillHasGenerator = networkHasGenerator(startX, startY, startZ, generatorData, color)
-        if stillHasGenerator then
+    local stillHasGenerator = networkHasGenerator(startX, startY, startZ, generatorData, color)
+    if disconnect and stillHasGenerator then
             -- This network still has access to the generator, don't remove data
             return
-        end
     end
-    
+    generatorData = generatorData or stillHasGenerator
     local visited = {}
     local queue = {{x = startX, y = startY, z = startZ}}
     
     while #queue > 0 do
         local current = table.remove(queue, 1)
         local key = current.x .. "," .. current.y .. "," .. current.z
-        
         if not visited[key] then
+            local ccable = PWR.findCable({current.x, current.y, current.z})
+            if ccable and ccable[color] and stillHasGenerator then
+                ccable[color]:getModData().generator = generatorData
+            end
             visited[key] = true
             
-            -- Check all six directions
             local directions = {
-                {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}
+                {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}
             }
             
             for _, dir in ipairs(directions) do
@@ -124,7 +140,7 @@ local function propagateGeneratorData(startX, startY, startZ, generatorData, col
                 if neighborCable and neighborCable[color] then
                     neighborCable = neighborCable[color]
                     local node = PWR.findNode({nx, ny, nz})
-                    generatorData.color = color
+                    if generatorData then generatorData.color = color end
                     
                     if disconnect then
                         neighborCable:getModData().generator = nil
@@ -134,16 +150,15 @@ local function propagateGeneratorData(startX, startY, startZ, generatorData, col
 
                     if node ~= nil then
                         local vn = PWR.getNode(nx, ny, nz)
-                        if disconnect then
-                            local ndata = node:getModData().generator
+                        if disconnect and generatorData then
+                            local ndata = node:getModData().generator or {}
                             for i,tbl in pairs(ndata)do
                                 if tbl.x == generatorData.x and tbl.y == generatorData.y and tbl.z == generatorData.z then
                                     table.remove(ndata,i)
                                 end
                             end
-
                             node:getModData().generator = ndata
-                        else
+                        elseif generatorData then
                             node:getModData().generator = node:getModData().generator or {}
                             if not genAdded(node:getModData().generator, generatorData) then
                                 table.insert(node:getModData().generator, generatorData)
@@ -167,8 +182,12 @@ local function propagateGeneratorData(startX, startY, startZ, generatorData, col
     end
 end
 
--- Modified onCablePlaced function
+--set generator data and sprite for cables
+--- @param obj IsoObject
+--- @param disconnect boolean
+--- @return nil
 function PWR.onCablePlaced(obj, disconnect)
+    if not obj then return end
     PWR.Debug("PWR.onCablePlaced run")
     local x, y, z = obj:getX(), obj:getY(), obj:getZ()
     local newCable = obj
@@ -178,61 +197,65 @@ function PWR.onCablePlaced(obj, disconnect)
         {1, 0, 0},
         {-1, 0, 0}
     }
-    local generatorData = nil
+    local generatorData = obj:getModData().generator
     local color = PWR.getColor(obj)
     
     -- Find generator data from neighbors
-    for _, dir in ipairs(directions) do
-        local nx, ny, nz = x + dir[1], y + dir[2], z + dir[3]
-        local neighborCable
-        local cables = PWR.findCable({nx, ny, nz})
-        if cables and cables[color] then
-            neighborCable = cables[color]
-        end
-        if neighborCable then
-            local data = neighborCable:getModData().generator
-            if data ~= nil then
-                local gen
-                if data.bank then
-                    local PbSystem = require "Powerbank/ISAPowerbankSystem_server"
-                    gen = PbSystem.instance:getLuaObjectAt(data.bank.x,data.bank.y,data.bank.z)
-                else
-                    gen = PWR.findGenerator(data.x, data.y, data.z)
+    if not generatorData then
+        for _, dir in ipairs(directions) do
+            local nx, ny, nz = x + dir[1], y + dir[2], z + dir[3]
+            local neighborCable
+            local cables = PWR.findCable({nx, ny, nz})
+            if cables and cables[color] then
+                neighborCable = cables[color]
+            end
+            if neighborCable then
+                local data = neighborCable:getModData().generator
+                if data ~= nil and type(data) == "table" then
+                    local gen
+                    if data.bank then
+                        local PbSystem = require "Powerbank/ISAPowerbankSystem_server"
+                        gen = PbSystem.instance:getLuaObjectAt(data.bank.x,data.bank.y,data.bank.z)
+                    else
+                        gen = PWR.findGenerator(data.x, data.y, data.z)
+                    end
+                    if gen ~= nil then
+                        generatorData = neighborCable:getModData().generator
+                    else
+                        neighborCable:getModData().generator = nil
+                    end
+                    break
                 end
-                if gen ~= nil then
-                    generatorData = neighborCable:getModData().generator
-                else
-                    neighborCable:getModData().generator = nil
-                end
-                break
             end
         end
     end
     
-    if generatorData then
-        generatorData.color = color
+        if generatorData then generatorData.color = color end
         local node = PWR.findNode({x, y, z})
         
         if disconnect == true then
             --newCable:getModData().generator = nil
-            if node ~= nil then
-                node:getModData().generator = nil
+            if node ~= nil and generatorData and node:getModData().generator then
+                for i, d in pairs(node:getModData().generator)do
+                    if d.x == generatorData.x and d.y == generatorData.y and d.z == generatorData.z then
+                        table.remove(node:getModData().generator,i)
+                    end
+                end
+                node:transmitModData()
             end
-        else
+            
+        elseif generatorData then
             if node ~= nil then
                 node:getModData().generator = node:getModData().generator or {}
                 if not genAdded(node:getModData().generator, generatorData) then
                     table.insert(node:getModData().generator, generatorData)
+                    node:transmitModData()
                 end
             end
             newCable:getModData().generator = generatorData
+            newCable:transmitModData()
         end
-        
-        newCable:transmitModData()
-        if node ~= nil then
-            node:transmitModData()
-        end
-        
+         
         -- Propagate to all connected networks
         if disconnect then
             -- When disconnecting, we need to check each connected network separately
@@ -244,15 +267,54 @@ function PWR.onCablePlaced(obj, disconnect)
                     propagateGeneratorData(nx, ny, nz, generatorData, color, disconnect)
                 end
             end
+            obj:getModData().generator = nil
         else
             -- Normal propagation when connecting
             propagateGeneratorData(x, y, z, generatorData, color, disconnect)
         end
+
+end
+
+--finds and attaches nearby switch to a generator
+--- @param gen IsoGenerator
+--- @return nil
+function PWR.findGenSwitch(gen)
+   -- print("PWR.findGenSwitch run")
+    local x,y,z = gen:getX(),gen:getY(),gen:getZ()
+    local switch
+    local maxX,maxY,minX,minY = x+2,y+2,x-2,y-2
+    for n = minX,maxX do
+        if switch then break end
+        for m = minY,maxY do
+            if switch then break end
+            switch = PWR.findSwitch({n,m,z})
+           -- print("searching square "..n.." "..m.." "..z)
+            
+        end
+    end
+    if switch ~= nil then
+      --  print("switch found adding moddata")
+        switch:getModData().generator = {x = x,y = y,z = z}
+        gen:getModData().switch = {switch:getX(),switch:getY(),switch:getZ()}
+        gen:transmitModData()
+        switch:transmitModData()
+        local cord = PWR.findCable(gen:getModData().switch)
+        if cord ~= nil then
+            for _, cable in pairs(cord)do
+                cable:getModData().generator = {x = x,y = y,z = z}
+                PWR.connectCable(cable)
+            end
+        end
     end
 end
 
+
+--returns generator object at given coordinates
+---@param x integer
+---@param y integer
+---@param z integer
+---@return IsoGenerator
 function PWR.findGenerator(x,y,z)
-    
         local nx,ny,nz = x,y,z
         if type(x) == "table" then
             nx,ny,nz = x[1],x[2],x[3]
@@ -265,23 +327,34 @@ function PWR.findGenerator(x,y,z)
         end
 end
 
+--returns powernode object at the given coordinates
+---@param x integer
+---@param y integer
+---@param z integer
+---@param pick string
 local function findPowerObject(x,y,z,pick)
+   -- print("findPowerObject run")
     local function getTileNum(str)
         if str == nil then return end
         local num = string.match(str, "_(.*)")
+       -- print("tile number found "..num)
         return tonumber(num)
     end
     local square = getSquare(x,y,z)
     local cables
     if square then
+       -- print("square found iterating objects")
         for i=0,square:getObjects():size()-1 do
             local obj = square:getObjects():get(i)
             if obj then
                 local tex = obj:getTextureName()
-                if tex and tex:contains("PowerNodesTiles") and not tex:contains("PowerNodesTiles_Cords") then
+               -- if tex then print("texture "..tex.." found")end
+                if tex and not tex:contains("Cords") and tex:contains("PowerNodesTiles") then
                     local num = getTileNum(tex)
                     if num ~= nil then
-                        if num<= 3 and pick == "SWITCH" then
+                    --    print("tile number not nil")
+                        if num <= 3 and pick == "SWITCH" then
+                         --   print("returning switch object")
                             return obj
                         elseif num >= 4 and num <= 7 and pick == "NODE" then
                             return obj
@@ -298,6 +371,9 @@ local function findPowerObject(x,y,z,pick)
     end
     
 end
+
+
+--sorts coordinates for other functions
 local function sortCoords(location)
     PWR.Debug("sortCoords run")
     local x,y,z
@@ -310,6 +386,9 @@ local function sortCoords(location)
     return {x,y,z} end
 end
 
+--takes in a table of coordinates and returns a node at that location
+---@param location table
+---@return IsoObject
 function PWR.findNode(location)
     PWR.Debug("PWR.findNode run")
     local coords = sortCoords(location)
@@ -318,6 +397,8 @@ function PWR.findNode(location)
     end
 end
 
+---@param location table
+---@return table
 function PWR.findCable(location)
     PWR.Debug("PWR.findCable run")
     local coords = sortCoords(location)
@@ -326,48 +407,70 @@ function PWR.findCable(location)
     end
 end
 
+---@param location table
+---@return IsoObject
 function PWR.findSwitch(location)
-    PWR.Debug("PWR.findSwitch run")
+   -- print("PWR.findSwitch run")
     local coords = sortCoords(location)
     if coords then
         return findPowerObject(coords[1],coords[2],coords[3],"SWITCH")
     end
 end
 
-
 --return table of chunks in the power range
+---@param cx integer
+---@param cy integer
+---@param cz integer
+---@return table
 function PWR.getChunks(cx,cy,cz)
+    local world = getWorld()
     PWR.Debug("PWR.getChunks run")
+    local sSquare = getSquare(cx,cy,cz)
+    if not sSquare then return end
+    local sChunk = sSquare:getChunk()
+    local sCSquare = sChunk:getGridSquare(5,5,cz) --find the center of the chunk
+    if not sCSquare then return end
+    cx,cy = sCSquare:getX(),sCSquare:getY()
     local chunks = {}
-    local r = PWRRadius or 20
+    local r = SandboxVars.PWRNODE.chunk * 10
+    if r == 0 then
+        table.insert(chunks,sChunk)
+        return chunks
+    end
     local function chunkDone(chunk)
         if not chunk then return end
         for _,c in pairs(chunks)do
             if c == chunk then return true end
         end
     end
-    local world = getWorld()
-    for x = cx-r,cx+r do
-        for y = cy-r,cy+r do
-            if not(IsoUtils.DistanceToSquared(x + 0.5, y + 0.5, cx + 0.5, cy + 0.5) > 400) then
-                local sq = getSquare(x,y,cz)
-                if sq then
-                    local chunk = sq:getChunk()
-                    if chunkDone(chunk) then
-                    else
-                        table.insert(chunks,chunk)
+    --increment by 10, each center of chunk is 10 squares apart.
+    for z = cz-2, cz+2 do
+        for x = cx-r,cx+r,10 do
+            for y = cy-r,cy+r,10 do
+                --if not(IsoUtils.DistanceToSquared(x + 0.5, y + 0.5, cx + 0.5, cy + 0.5) > 400) then
+                    local sq = getSquare(x,y,z)
+                    if sq then
+                        local chunk = sq:getChunk()
+                        if chunkDone(chunk) then
+                        else
+                            table.insert(chunks,chunk)
+                        end
+                    elseif not sq and world:isValidSquare(x,y,z) then
+                    --    print("not all square loaded making table of missing squares")
+                        PWR.SquaresToLoad = PWR.SquaresToLoad or {}
+                        PWR.SquaresToLoad[x.." "..y.." "..z] = {cx,cy,z}
                     end
-                elseif not sq and world:isValidSquare(x,y,cz) then
-                    print("not all square loaded making table of missing squares")
-                    PWR.SquaresToLoad = PWR.SquaresToLoad or {}
-                    PWR.SquaresToLoad[x.." "..y.." "..cz] = {cx,cy,cz}
-                end
+               -- end
             end
         end
     end
     return chunks
 end
 
+--tells chunks there is a generator in the nodes position or removes it based on command
+---@param node IsoObject
+---@param command string
+---@param sync boolean
 function PWR.setChunks(node,command,sync)
     PWR.Debug("PWR.setChunks run")
     if command == nil then return end
@@ -388,8 +491,25 @@ function PWR.setChunks(node,command,sync)
     return chunks
 end
 
+local function sendCommand(command,args)
+    if not isServer() then return end
+        local players = getOnlinePlayers()
+    for i = 0 ,players:size()-1 do
+        local p = players:get(i)
+        sendServerCommand(p,"PWRNODE",command,args)
+    end
+end
+
+
+--sets colored node overlays based on what cables are connected to it and if they are powered
+---@param node IsoObject
 function PWR.setNodeOverlays(node)
     if not node then return end
+    if isServer() then
+       local args = {x = node:getX(),y = node:getY(),z = node:getZ()}
+        sendCommand("UPDATEOVERLAY",args)
+        return
+    end
     node:setAttachedAnimSprite(ArrayList.new())
     if node:getModData().status ~= "ON" then return end
     local tex = node:getTextureName()
@@ -437,26 +557,35 @@ function PWR.setNodeOverlays(node)
     end
     node:transmitUpdatedSpriteToServer()
 end
+
+--shuts down node power
+---@param args table
 function PWR.shutDown(args)
     if not args then return end
-    local gdata = args.generator
-    local gen
-    if gdata then
-        gen = PWR.findGenerator(gdata.x,gdata.y,gdata.z)
-    end
+    print("PWR.shutDown run")
     local node = PWR.findNode({args.x,args.y,args.z})
-    --print("PWR.shutDown run")
-    local powered = args.realTotalPower
-    if powered and gen and not getActivatedMods():contains("MultipleGenerators") then
-        local genTotalPower = gen:getTotalPowerUsing()
-        local total = genTotalPower - powered
-        gen:setTotalPowerUsing(total)
+    if not node then return end
+    if not getActivatedMods():contains("MultipleGenerators") then
+        local gdata = args.generator
+        local powered = args.realTotalPower
+        local gen
+        if gdata then
+            gen = PWR.findGenerator(gdata.x,gdata.y,gdata.z)
+        end
+        if gen then
+            local genTotalPower = gen:getTotalPowerUsing()
+            local total = genTotalPower - powered
+            gen:setTotalPowerUsing(total)
+        end
     end
+
     PWR.setChunks({args.x,args.y,args.z},"SHUTDOWN",true)
     node:getModData().status = "OFF"
     node:transmitModData()
-    node:RemoveAttachedAnims()
+   -- node:RemoveAttachedAnims()
+    PWR.setNodeOverlays(node)
     node:transmitUpdatedSpriteToServer()
+
     local moddata = GetNodeData()
     args.state = false
     for k, n in pairs(moddata.ActiveNodes)do
@@ -468,9 +597,10 @@ function PWR.shutDown(args)
     end
 end
 
-
+--turns on node power
+---@param args table
 function PWR.TurnON(args)
-    print("PWR.TurnON run")
+  --  print("PWR.TurnON run")
     local moddata = GetNodeData()
     local gdata = args.generator
     local gen
@@ -482,7 +612,6 @@ function PWR.TurnON(args)
             local total = genTotalPower + powered
             gen:setTotalPowerUsing(total)
         end
-
     end
     
     local node = PWR.findNode({args.x,args.y,args.z})
@@ -501,60 +630,68 @@ function PWR.TurnON(args)
         PWR.setNodeOverlays(node)
     end
 end
+
+--toggles node based on state
+---@param node IsoObject
+---@param s string
 function PWR.toggle(node,s)
-    local mods = getActivatedMods()
-    local multigens = {}
-    multigens.active = mods:contains("MultipleGenerators")
-    local x,y,z = node:getX(),node:getY(),node:getZ()
-        local moddata,entry = GetNodeData(),{}
-        for k,v in pairs(moddata.ActiveNodes) do
-            if v then
-                if v.x == x and v.y == y and v.z == z then
-                    entry = v
-                    if s == "ON" then
-                        entry.state = false
-                        node:getModData().status = "OFF"
-                    else
-                        entry.state = true
-                        node:getModData().status = "ON"
-                        if multigens.active then
-                            VirtualGenerator.Add(x, y, z,0)
-                        end
-                    end
-                    node:transmitModData()
-                    table.remove(moddata.ActiveNodes, k)
-                    table.insert(moddata.ActiveNodes, entry)
-                    if isClient() then
-                        entry.toggle = true
-                        sendClientCommand(getPlayer(), 'PWRNODE', 'UPDATEDATA', entry)
-                    elseif isServer() then
-                        entry.toggle = true
-                        PWR.updateData(entry)
-                    else
-                        if entry.state == false then
-                            PWR.shutDown(entry)
+   -- local player = getPlayer()  
+    --local onCompleteFunc = function()
+      --  player:faceThisObject(node)
+        local mods = getActivatedMods()
+        local multigens = {}
+        multigens.active = mods:contains("MultipleGenerators")
+        local x,y,z = node:getX(),node:getY(),node:getZ()
+            local moddata,entry = GetNodeData(),{}
+            for k,v in pairs(moddata.ActiveNodes) do
+                if v then
+                    if v.x == x and v.y == y and v.z == z then
+                        entry = v
+                        if s == "ON" then
+                            entry.state = false
+                            node:getModData().status = "OFF"
                         else
-                            PWR.TurnON(entry)
+                            entry.state = true
+                            node:getModData().status = "ON"
+                            if multigens.active then
+                                VirtualGenerator.Add(x, y, z,0)
+                            end
                         end
-                        PWRNODE_UPDATE()
+                        node:transmitModData()
+                        table.remove(moddata.ActiveNodes, k)
+                        table.insert(moddata.ActiveNodes, entry)
+                        if isClient() then
+                            entry.toggle = true
+                            sendClientCommand(getPlayer(), 'PWRNODE', 'UPDATEDATA', entry)
+                        elseif isServer() then
+                            entry.toggle = true
+                            PWR.updateData(entry)
+                        else
+                            if entry.state == false then
+                                PWR.shutDown(entry)
+                            else
+                                PWR.TurnON(entry)
+                            end
+                            PWRNODE_UPDATE()
+                        end
+                            if multigens.active and not entry.state then
+                                entry.removevg = true
+                                VirtualGenerator.Remove(x, y, z)
+                            elseif multigens.active then
+                                VirtualGenerator.Add(x, y, z,0)
+                            end
+                        break
                     end
-                        if multigens.active and not entry.state then
-                            entry.removevg = true
-                            VirtualGenerator.Remove(x, y, z)
-                        elseif multigens.active then
-                            VirtualGenerator.Add(x, y, z,0)
-                        end
-                    break
                 end
             end
-        end
-        if isClient() then
-            sendClientCommand(getPlayer(),"PWRNODE", "UPDATE", {})
-        end
-        --if genRange.active and isShowing then
-        --    genRange.ClearRender(true)
-         --   genRange.Render(node, node:getModData().status == "ON")
-        --end
+            if isClient() then
+                sendClientCommand(getPlayer(),"PWRNODE", "UPDATE", {})
+            end
+   -- end
+   -- local action = ISWalkToTimedAction:new(player, node:getSquare())
+   -- action:setOnComplete(onCompleteFunc,"","","","")
+   -- ISTimedActionQueue.add(action)
+
 end
 local function getPoweredItemName(object)
     local name = getText("IGUI_VehiclePartCatOther")
@@ -610,19 +747,21 @@ local function findVehicles(x,y,z)
         end
 end
 
-local function sendCommand(command,args)
-    if not isServer() then return end
-        local players = getOnlinePlayers()
-    for i = 0 ,players:size()-1 do
-        local p = players:get(i)
-        sendServerCommand(p,"PWRNODE",command,args)
+
+local function inActiveChunks(square,chunks)
+    local chunk = square:getChunk()
+    for _,c in pairs(chunks)do
+        if c == chunk then return true end
     end
 end
 
 
-
---only used by server
+--only used by server,or single player client, finds all powered items in generator radius
+---@param cx integer
+---@param cy integer
+---@param cz integer
 function PWR.getSurroundingPoweredItems(cx,cy,cz)
+    local chunks = PWR.getChunks(cx,cy,cz)
     local tSquare = getSquare(cx,cy,cz)
     local gen
     --check the square for a generator do not power vehicles if true
@@ -643,10 +782,9 @@ function PWR.getSurroundingPoweredItems(cx,cy,cz)
                         if not PWR.squareSkipCache[sid] then
                             local square = getSquare(x,y,z)
                             local vehicle
-                            if square then
+                            if square and inActiveChunks(square,chunks) == true then
                                 if not gen then
                                     vehicle = findVehicles(x,y,z)
-                                    
                                     table.insert(toSend.squares,{x,y,z})
                                     if not square:haveElectricity() then
                                        -- if not p then print("squares without power found attempting to add generator position") p = true end

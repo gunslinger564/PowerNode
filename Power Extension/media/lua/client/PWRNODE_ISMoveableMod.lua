@@ -4,7 +4,7 @@
 
 local function getCableSprite(item)
     local type = item:getType()
-    print("searching for item "..type)
+   -- print("searching for item "..type)
     if type:contains("Orange") then
         return "PowerNodesTiles_Cords_0"
     elseif type:contains("Yellow") then
@@ -24,7 +24,7 @@ local original_ISMoveableSpriteProps_findInInventory = ISMoveableSpriteProps.fin
 
 
 function ISMoveableSpriteProps:findInInventory( _character, _spriteName )
-    print("ISMoveableSpriteProps:findInInventory run")
+   -- print("ISMoveableSpriteProps:findInInventory run")
     if _character and _spriteName then
         local items 			= _character:getInventory():getItems();
         local items_size 		= items:size();
@@ -34,7 +34,7 @@ function ISMoveableSpriteProps:findInInventory( _character, _spriteName )
             if sprite then
                 if _character:getPrimaryHandItem() ~= item and _character:getSecondaryHandItem() ~= item then
                     if sprite == _spriteName then
-                        print("found extension item in inventory")
+                     --   print("found extension item in inventory")
                         return item;
                         
                     end
@@ -48,7 +48,7 @@ end
 local original_ISMoveableSpriteProps_placeMoveable = ISMoveableSpriteProps.placeMoveable
 
 function ISMoveableSpriteProps:placeMoveable( _character, _square, _origSpriteName )
-    print("ISMoveableSpriteProps:placeMoveable run")
+  --  print("ISMoveableSpriteProps:placeMoveable run")
     if instanceof(_square,"IsoGridSquare") then
             --local spriteGrid = self.sprite:getSpriteGrid();
            -- if not spriteGrid then return false; end
@@ -57,9 +57,9 @@ function ISMoveableSpriteProps:placeMoveable( _character, _square, _origSpriteNa
             local item = self:findInInventory( _character, _origSpriteName );
             local sprite = getCableSprite(item)
             if sprite then
-                print("extension sprite found")
+             --   print("extension sprite found")
                 if item then --and self:canPlaceMoveableInternal( _character, _square, item ) then
-                    print("extension being placed")
+              --      print("extension being placed")
                     self:placeMoveableInternal( _square, item, self.spriteName )
                     item:Use()
                     ISMoveableCursor.clearCacheForAllPlayers();

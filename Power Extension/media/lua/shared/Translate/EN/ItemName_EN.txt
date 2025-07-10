@@ -1,0 +1,7 @@
+ItemName_EN = {
+    ItemName_PowerNodes.OrangeExtensionCord = "Extension Cord",
+    ItemName_PowerNodes.YellowExtensionCord = "Extension Cord",
+    ItemName_PowerNodes.GreenExtensionCord = "Extension Cord",
+    ItemName_PowerNodes.RedExtensionCord = "Extension Cord",
+    ItemName_PowerNodes.BlueExtensionCord = "Extension Cord",
+}

@@ -1,0 +1,16 @@
+VERSION = 1,
+
+option PWRNODE.electric {
+	page = PWRNODE, translation = PWRNODE_electric,
+	type = integer,
+    min = 0, max = 10,
+    default = 5,
+}
+
+option PWRNODE.chunk {
+	page = PWRNODE, translation = PWRNODE_chunk,
+	type = integer,
+    min = 0, max = 2,
+    default = 2,
+}
+

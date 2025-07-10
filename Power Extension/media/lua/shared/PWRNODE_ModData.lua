@@ -24,7 +24,7 @@ local function LoadModData(key, modData)
         end
     end
 end
-
+--transmits updated node moddata
 function TransmitNodeData()
     ModData.transmit("NodeData")
 end

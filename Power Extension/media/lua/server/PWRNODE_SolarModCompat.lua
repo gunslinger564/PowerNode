@@ -8,10 +8,10 @@ if getActivatedMods():contains("ISA_41") then
 
     function SPowerbank:updateDrain()
         original_SPowerbank_updateDrain(self)
-        print("SPowerbank:updateDrain run")
+     --   print("SPowerbank:updateDrain run")
         if self.node then
             local node = PWR.getNode(self.node.x,self.node.y,self.node.z)
-            print("node data found")
+         --   print("node data found")
             local sandbox = SandboxVars.ISA
             local isaS = sandbox.DrainCalc == 1
          if node and node.state then

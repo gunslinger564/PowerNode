@@ -1,7 +1,7 @@
 
 
 
-PWRRadius = 20
+
 
 PWR = PWR or {}
 
@@ -181,6 +181,7 @@ function PWR.setNodeCable(cbls,node,cable,mod)
         vn.generator = node:getModData().generator
         sendClientCommand(getPlayer(),"PWRNODE",'UPDATEDATA',vn)
     end
+    PWR.setNodeOverlays(node)
 end
 
 
@@ -319,22 +320,31 @@ local function addNodeData(cable,node)
     node:getModData().generator = node:getModData().generator or {}
     local ndata,cdata = node:getModData().generator,cable:getModData().generator
     local match
-    for _,d in pairs(ndata)do
-        if d.bank then
-        else
-            if d.x == cdata.x and d.y == cdata.y and d.z == cdata.z then
-                match = true
+    if ndata and cdata then
+        for _,d in pairs(ndata)do
+            if d.bank then
+            else
+                if d.x == cdata.x and d.y == cdata.y and d.z == cdata.z then
+                    match = true
+                end
             end
-        end
 
-    end
-    if not match then
-        table.insert(node:getModData().generator,cdata)
-        node:transmitModData()
+        end
+        if not match then
+            table.insert(node:getModData().generator,cdata)
+            if isClient() then
+                local vn = PWR.getNode(node:getX(),node:getY(),node:getZ())
+                if vn then 
+                    vn.generator = ndata
+                    sendClientCommand(getPlayer(),"PWRNODE","UPDATEDATA",vn)
+                end
+            end
+            node:transmitModData()
+        end
     end
 end
 
-local function connectCable(obj,remove)
+function PWR.connectCable(obj,remove)
     if obj == nil then return end
     local switch = PWR.findSwitch(obj:getSquare())
 
@@ -354,7 +364,10 @@ local function connectCable(obj,remove)
     elseif node ~= nil then
         addNodeData(obj,node)
         PWR.setNodeCable(cbls,node,obj,mod)
-        PWR.setNodeOverlays(node)
+        if isClient() then
+            sendClientCommand(getPlayer(),"PWRNODE", "UPDATE", {})
+        end
+        --PWR.setNodeOverlays(node)
     end
     if not remove then
        PWR.onCablePlaced(obj,nil)
@@ -373,7 +386,7 @@ local function connectNode(obj)
     obj:getModData().generator= obj:getModData().generator or {}
     if cables ~= nil then
         for c,cobj in pairs(cables)do
-            connectCable(cobj)
+            PWR.connectCable(cobj)
         end
     end
     local gen = obj:getModData().generator
@@ -414,14 +427,14 @@ local function connectSwitch(obj)
             local cables = PWR.findCable({x,y,z})
             if cables ~= nil then
                 for _, cobj in pairs(cables)do
-                    connectCable(cobj)
+                    PWR.connectCable(cobj)
                 end
             end
         else
             local cables = PWR.findCable({x,y,z})
             if cables ~= nil then
                 for _, cobj in pairs(cables)do
-                    connectCable(cobj)
+                    PWR.connectCable(cobj)
                 end
             end
             obj:getModData().generator = obj:getModData().generator or {}
@@ -432,50 +445,25 @@ local function connectSwitch(obj)
 end
 
 
-function PWR.findGenSwitch(gen)
-    local x,y,z = gen:getX(),gen:getY(),gen:getZ()
-    local switch
-    local maxX,maxY,minX,minY = x+2,y+2,x-2,y-2
-    for n = minX,maxX do
-        for m = minY,maxY do
-            switch = PWR.findSwitch(n,m,z)
-            if switch then break end
-        end
-    end
-    if switch ~= nil then
-        switch:getModData().generator = {x = x,y = y,z = z}
-        gen:getModData().switch = {switch:getX(),switch:getY(),switch:getZ()}
-        gen:transmitModData()
-        switch:transmitModData()
-        local cord = PWR.findCable(gen:getModData().switch)
-        if cord ~= nil then
-            for _, cable in pairs(cord)do
-                connectCable(cable)
-            end
-        end
-    end
-end
-
-
 local function OnObjectAdded(object)
-    if instanceof(object,"IsoGenerator") then
-        PWR.findGenSwitch(object)
-        return
-    end
+    --if instanceof(object,"IsoGenerator") then
+      --  PWR.findGenSwitch(object)
+      --  return
+  --  end
     local tex = object:getTextureName()
     if tex and tex:contains("PowerNodesTiles") and not tex:contains("PowerNodesTiles_Cords") then
         local num = getTileNum(tex)
         if num then
             if num <= 3 then
-                connectSwitch(object)
+             --   connectSwitch(object)
             elseif num >= 4 and num <= 7 then
                 connectNode(object)
-                object:getModData().status = "OFF"
+                object:getModData().status = object:getModData().status or "OFF"
                 object:transmitModData()
             end
         end
     elseif tex and tex:contains("PowerNodesTiles_Cords") then
-        connectCable(object)
+        PWR.connectCable(object)
     end
 end
 
@@ -527,54 +515,74 @@ local function OnObjectAboutToBeRemoved(object)
                     end
                 end
             end
-        elseif tex ~= nil and tex:contains("PowerNodesTiles_Cords")then
-            print ("cable removed, adjusting data")
-            local n,s,w,e = {x,y-1,z},{x,y+1,z},{x-1,y,z},{x+1,y,z}
-            local cables = {PWR.findCable(w),PWR.findCable(e),PWR.findCable(n),PWR.findCable(s)}
-            local node = PWR.findNode({x,y,z})
-            local color = PWR.getColor(object)
-            local lcables = PWR.findCable({x,y,z})
-            if node ~= nil then
-                local mdata = object:getModData().generator
-                local count = 0
-                for c,tbl in pairs(lcables)do
-                    count = count+1
-                end
-                if count <= 1 then
-                    PWR.shutDown(PWR.getNode(x,y,z))
-                end
-
-                for i,d in pairs(node:getModData().generator)do
-                    if d.color == mdata.color and d.x == mdata.x and d.y == mdata.y and d.z == mdata.z then
-                        table.remove(node:getModData().generator,i)
-                        break
-                    end
-                end
-                local entry = {}
-                entry.generator = node:getModData().generator
-                PWR.modifyNode(x,y,z,entry)
-                PWR.setNodeOverlays(node)
-                node:transmitModData()
-            end
-            local function OnTileRemoved(obj)
-                if obj == object then
-                    PWR.setNodeOverlays(node)
-                    for _, c in pairs(cables)do
-                        PWR.onCablePlaced(c,true)
-                    end
-                    Events.OnTileRemoved.Remove(OnTileRemoved)
-                end
-            end
-            Events.OnTileRemoved.Add(OnTileRemoved)
-        end
-        if num and num >= 4 and num <= 7 then
+            if num and num >= 4 and num <= 7 then
                 PWR.shutDown(PWR.getNode(x,y,z))
                 PWR.removeNode(x,y,z)
                 if getActivatedMods():contains("MultipleGenerators") then
                     require"MGVirtualGenerator"
                     VirtualGenerator.Remove(x, y, z)
                 end
+            end
+        elseif tex ~= nil and tex:contains("PowerNodesTiles_Cords")then
+          --  print ("cable removed, adjusting data")
+            local n,s,w,e = {x,y-1,z},{x,y+1,z},{x-1,y,z},{x+1,y,z}
+            local cables = {PWR.findCable(w),PWR.findCable(e),PWR.findCable(n),PWR.findCable(s)}
+            local node = PWR.findNode({x,y,z})
+            local color = PWR.getColor(object)
+            local lcables = PWR.findCable({x,y,z})
+            local count = 0
+            for _,c in pairs(lcables)do
+                count = count +1
+
+            end
+
+            if node ~= nil then
+                local mdata = object:getModData().generator
+                if mdata and node:getModData().generator then
+                    for i,d in pairs(node:getModData().generator)do
+                        if d.color == mdata.color and d.x == mdata.x and d.y == mdata.y and d.z == mdata.z then
+                            table.remove(node:getModData().generator,i)
+                            break
+                        end
+                    end
+                end
+
+                local vn = PWR.getNode(x,y,z)
+                if vn then
+                    vn.generator = node:getModData().generator
+                    if count <=0 then
+                        if vn.state == true then
+                            vn.state = false
+                            vn.toggle = true
+                        end
+                    end
+                    sendClientCommand("PWRNODE","UPDATEDATA",vn)
+                else
+                    local entry = {}
+                    entry.generator = node:getModData().generator
+                    if count <=0 then
+                        entry.state = false
+                    end
+                    PWR.addNode(x,y,z,entry)
+                end
+                --PWR.setNodeOverlays(node)
+                node:transmitModData()
+            end
+            local function OnTileRemoved(obj)
+               if obj == object then
+                   -- PWR.setNodeOverlays(node)
+                    for _, c in pairs(cables)do
+                        local cbl = c[color]
+                        if cbl then
+                            PWR.onCablePlaced(cbl,true)
+                        end
+                    end
+                    Events.OnTileRemoved.Remove(OnTileRemoved)
+                end
+           end
+            Events.OnTileRemoved.Add(OnTileRemoved)
         end
+
     end
 end
 

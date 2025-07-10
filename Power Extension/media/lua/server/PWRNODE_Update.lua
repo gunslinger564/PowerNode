@@ -2,7 +2,6 @@
 
 
 local function sendCommand(command,args)
-    if not isServer() then return end
     local players = getOnlinePlayers()
     for i = 0 ,players:size()-1 do
         local p = players:get(i)
@@ -12,7 +11,7 @@ end
 
 --another copied from multiple generators
 function PWRNODE_UPDATE()
-    print("pwrnode update run")
+    --print("pwrnode update run")
 
     if isClient() then return end
     
@@ -105,21 +104,22 @@ end
             local c = 0
             for i,d in pairs(data)do
                 local gen
-                if d.bank then
-                    local PbSystem = require "Powerbank/ISAPowerbankSystem_server"
-                    local powerBank = PbSystem.instance:getLuaObjectAt(d.bank.x,d.bank.y,d.bank.z)
-                    if powerBank and powerBank.on and powerBank.charge and powerBank.charge > 0 then
-                        c = c +1
-                    end
-                else
-                    gen = PWR.findGenerator(d.x,d.y,d.z)
-                    if not gen then
-                        table.remove(obj.generator,i)
-                    elseif gen and gen:isActivated() then
-                        c = c +1
+                if type(d) == "table" then
+                    if d.bank then
+                        local PbSystem = require "Powerbank/ISAPowerbankSystem_server"
+                        local powerBank = PbSystem.instance:getLuaObjectAt(d.bank.x,d.bank.y,d.bank.z)
+                        if powerBank and powerBank.on and powerBank.charge and powerBank.charge > 0 then
+                            c = c +1
+                        end
+                    else
+                        gen = PWR.findGenerator(d.x,d.y,d.z)
+                        if not gen then
+                            table.remove(obj.generator,i)
+                        elseif gen and gen:isActivated() then
+                            c = c +1
+                        end
                     end
                 end
-
             end
             return c
         end
@@ -128,15 +128,9 @@ end
         for _, obj in pairs(nodes)do
             if obj.state then
                 local node = PWR.findNode({obj.x,obj.y,obj.z})
-                
                 if not node then
                     PWR.removeNode(obj.x,obj.y,obj.z)
                 else
-                    --local nsq = node:getSquare()
-                   -- if nsq and not nsq:haveElectricity() then
-                     --   obj.toggle = true
-                    --    PWR.updateData(obj)
-                  --  end
                     PWR.setNodeOverlays(node)
                     checkCables(obj.x,obj.y,obj.z,obj.generator)
                     findDuplicates(obj.generator)
@@ -181,16 +175,16 @@ end
                                         powerBank:saveData(true)
                                     end
                                 else
-                                    print("updating generator at "..g.x.." "..g.y.." "..g.z)
+                                   -- print("updating generator at "..g.x.." "..g.y.." "..g.z)
                                     local gen = PWR.findGenerator(g.x,g.y,g.z)
                                     if gen and node then
                                         if gen:isActivated() == true and obj.state == true then
                                                 --multiple generator compatability
                                             if multi ~= nil then
-                                                print("setting multi generator data")
+                                               -- print("setting multi generator data")
                                                     local vg = VirtualGenerator.Get(g.x,g.y,g.z)
                                                     if vg then
-                                                        print("virtual gen found")
+                                                       -- print("virtual gen found")
                                                         vg.groupPoweredItems = vg.groupPoweredItems or {}
                                                         for k, item in pairs(groupPoweredItems) do
                                                             if not item.name:contains("(NODE)") then
@@ -242,6 +236,7 @@ end
                                                             end
                                                         end
                                                     end
+                                                    TransmitMGModData()
                                             else
                                                 local genpower = PWR.getSurroundingPoweredItems(g.x,g.y,g.z)
                                                 local gentotal = 0.02
@@ -255,17 +250,19 @@ end
                                                 end
                                             end
                                         else
-                                            if not gen:isActivated() then print("generator not active")end
-                                            if not obj.state then print("node not activated") end
+                                           -- if not gen:isActivated() then print("generator not active")end
+                                           -- if not obj.state then print("node not activated") end
                                         end
-                                    else
-                                        if not gen then print("generator not found")end
+                                    elseif not gen then
+                                        if multi ~= nil then
+                                            VirtualGenerator.Remove(g.x,g.y,g.z)
+                                        end
                                     end
                                 end
                             end
                         end
                     else
-                        print("0 generators found turning off node")
+                     --  PWR.sendPrint({" no generators found in update, sending update to shutdown node"})
                         obj.toggle = true
                         obj.state = false
                         PWR.updateData(obj)
@@ -280,6 +277,7 @@ end
             end
         end
         TransmitNodeData()
+     
     end
 end
 Events.EveryTenMinutes.Add(PWRNODE_UPDATE)

@@ -6,10 +6,10 @@
 local function OnServerCommand(module, command, args)
     if module == "PWRNODE" then
             if command == "TURNON" then
-                print("Turn on command received")
+              --  print("Turn on command received")
                 PWR.TurnON(args)
             elseif command == "TURNOFF" then
-                print("Turn off command received")
+              --  print("Turn off command received")
                 PWR.shutDown(args)
             elseif command == "UPDATEGEN" then
                 local g,val = args[1],args[2]
@@ -27,6 +27,11 @@ local function OnServerCommand(module, command, args)
                             chunk:addGeneratorPos(center[1],center[2],center[3])
                         end
                     end
+                end
+            elseif command == "UPDATEOVERLAY" then
+                local node = PWR.findNode({args.x,args.y,args.z})
+                if node then
+                    PWR.setNodeOverlays(node)
                 end
             elseif command == "PRINT" then
                 print(args[1])

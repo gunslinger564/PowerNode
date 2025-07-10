@@ -41,6 +41,7 @@ function PWR.updateData(args)
                 ModData.add("NodeData",{ActiveNodes = moddata.ActiveNodes})
                 if isServer() then
                     if command ~= nil then
+                        PWR.sendPrint({command.. "being sent to clients"})
                         local players = getOnlinePlayers()
                         for i = 0 ,players:size()-1 do
                             local p = players:get(i)
@@ -72,11 +73,15 @@ function PWR.setChunk(args)
 end
 
 function PWR.sendPrint(args)
-            local players = getOnlinePlayers()
-            for i = 0 ,players:size()-1 do
-                local p = players:get(i)
-                sendServerCommand(p,"PWRNODE","PRINT",args)
-            end
+        if not IsServer() then
+            print(args[1])
+            return
+        end
+        local players = getOnlinePlayers()
+        for i = 0 ,players:size()-1 do
+            local p = players:get(i)
+            sendServerCommand(p,"PWRNODE","PRINT",args)
+        end
 end
 
 

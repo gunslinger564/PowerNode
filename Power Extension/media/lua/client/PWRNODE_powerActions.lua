@@ -108,6 +108,7 @@ local original_ISPlugGenerator_perform = ISPlugGenerator.perform
 function ISPlugGenerator:perform()
     if self.plug then
         if not self.generator:getModData().switch then
+           -- print("generator plugged looking for switch")
             PWR.findGenSwitch(self.generator)
         end
     else
@@ -121,12 +122,15 @@ function ISPlugGenerator:perform()
             cable = PWR.findCable({sData[1],sData[2],sData[3]})
             switch:getModData().generator = nil
         end
+        self.generator:setConnected(false)
         if cable then
             for _,c in pairs(cable)do
                 PWR.onCablePlaced(c,true)
             end
         end
+        
         self.generator:getModData().switch = nil
+        self.generator:transmitModData()
     end
     original_ISPlugGenerator_perform(self)
 end

@@ -71,7 +71,7 @@ function ISMoveableCursor:getInventoryObjectList()
                 end
             end
         else
-            print(self.tryInitialInvItem);
+         --   print(self.tryInitialInvItem);
         end
         self.tryInitialInvItem = nil;
     end
